@@ -25,9 +25,9 @@ Notes:
 
 import io
 import re
-import math
-import json
-import textwrap
+import tempfile
+from pathlib import Path
+import importlib
 from dataclasses import dataclass
 from typing import Optional, Tuple, Dict
 
@@ -43,15 +43,16 @@ import pdfplumber
 import arabic_reshaper
 from bidi.algorithm import get_display
 
-try:
-    from hazm import Normalizer
-except Exception:
-    Normalizer = None
+Normalizer = None
+_hazm_spec = importlib.util.find_spec("hazm")
+if _hazm_spec:
+    hazm = importlib.import_module("hazm")
+    Normalizer = getattr(hazm, "Normalizer", None)
 
-try:
-    import trafilatura
-except Exception:
-    trafilatura = None
+trafilatura = None
+_trafilatura_spec = importlib.util.find_spec("trafilatura")
+if _trafilatura_spec:
+    trafilatura = importlib.import_module("trafilatura")
 
 
 # -----------------------------
@@ -75,6 +76,11 @@ EXTRA_SPACE_RE = re.compile(r"\s+")
 # Keep Persian + Arabic letters (and joiners), optionally keep Latin for proper nouns.
 # You can toggle later in UI.
 ALLOWED_CHARS_RE = re.compile(r"[^A-Za-z\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u200c\s]+")
+SAMPLE_TEXT = (
+    "ایران سرزمینی با تاریخ کهن و فرهنگ پربار است. زبان فارسی در طول قرن‌ها "
+    "گنجینه‌ای از ادبیات، شعر و اندیشه را به جهان هدیه داده است. مطالعه‌ی منابع "
+    "گوناگون و گفت‌وگو درباره‌ی تجربه‌های مشترک، واژگان تازه و ایده‌های نو می‌آفریند."
+)
 
 
 def safe_request_get(url: str, timeout: int = 15) -> str:
@@ -134,10 +140,7 @@ def normalize_persian(text: str, keep_latin: bool = True) -> str:
 
     # Normalize with Hazm if available (handles Arabic/Persian variants, spacing, etc.)
     if Normalizer is not None:
-        try:
-            t = Normalizer().normalize(t)
-        except Exception:
-            pass
+        t = Normalizer().normalize(t)
 
     # Collapse spaces
     t = EXTRA_SPACE_RE.sub(" ", t).strip()
@@ -188,11 +191,16 @@ class WCOptions:
     scale: int = 2
     contour_width: int = 0
     contour_color: str = "black"
+    mask_path: Optional[str] = None
 
 
 def generate_persian_wordcloud(freq: Dict[str, int], opt: WCOptions) -> Tuple[WordCloud, plt.Figure]:
     # For RTL: reshape each token before feeding WordCloud
     shaped_freq = {rtl_shape(k): v for k, v in freq.items()}
+
+    mask = None
+    if opt.mask_path:
+        mask = plt.imread(opt.mask_path)
 
     wc = WordCloud(
         font_path=opt.font_path,
@@ -205,6 +213,7 @@ def generate_persian_wordcloud(freq: Dict[str, int], opt: WCOptions) -> Tuple[Wo
         scale=opt.scale,
         contour_width=opt.contour_width,
         contour_color=opt.contour_color,
+        mask=mask,
         # WordCloud's default regexp is Latin-centric; using frequencies bypasses it.
     ).generate_from_frequencies(shaped_freq)
 
@@ -238,8 +247,9 @@ with st.sidebar:
     )
 
     st.header("Word cloud")
+    font_upload = st.file_uploader("Upload a Persian-capable font (TTF/OTF)", type=["ttf", "otf"])
     font_path = st.text_input(
-        "Font path (TTF/OTF) that supports Persian",
+        "Or provide a font path on disk",
         value="Vazirmatn-Regular.ttf",
         help="Example: Vazirmatn-Regular.ttf, IRANSans.ttf, NotoNaskhArabic-Regular.ttf",
     )
@@ -255,10 +265,13 @@ with st.sidebar:
         scale = st.slider("Render scale (sharper but slower)", 1, 5, 2)
         contour_width = st.slider("Contour width", 0, 5, 0)
         contour_color = st.text_input("Contour color", "black")
+        mask_file = st.file_uploader("Optional mask image (PNG/JPG)", type=["png", "jpg", "jpeg"])
 
 # Collect input text
 text = ""
 error = None
+font_path_final = ""
+mask_path = None
 
 if mode == "URL":
     url = st.text_input("Paste a URL", value="")
@@ -283,9 +296,35 @@ elif mode == "PDF":
                 error = f"Failed to extract text from PDF: {e}"
 
 else:  # Plain text
-    raw = st.text_area("Paste Persian text", value="", height=220)
+    if "plain_text" not in st.session_state:
+        st.session_state.plain_text = ""
+    col_input, col_sample = st.columns([3, 1])
+    with col_input:
+        raw = st.text_area("Paste Persian text", value=st.session_state.plain_text, height=220)
+        st.session_state.plain_text = raw
+    with col_sample:
+        if st.button("Load sample text"):
+            st.session_state.plain_text = SAMPLE_TEXT
+            raw = SAMPLE_TEXT
+        if st.button("Clear"):
+            st.session_state.plain_text = ""
+            raw = ""
     if st.button("Generate", type="primary"):
         text = raw
+
+if font_upload is not None:
+    suffix = Path(font_upload.name).suffix or ".ttf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(font_upload.getvalue())
+        font_path_final = tmp.name
+else:
+    font_path_final = font_path.strip()
+
+if mask_file is not None:
+    suffix = Path(mask_file.name).suffix or ".png"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(mask_file.getvalue())
+        mask_path = tmp.name
 
 if error:
     st.error(error)
@@ -308,9 +347,13 @@ if text:
 
     if not freq:
         st.error("No usable words after cleaning/stopword removal. Try lowering stopwords or minimum length.")
+    elif not font_path_final:
+        st.error("Please provide a valid font path or upload a font file.")
+    elif font_upload is None and not Path(font_path_final).exists():
+        st.error("Font path does not exist. Upload a font file or provide a valid path.")
     else:
         opt = WCOptions(
-            font_path=font_path,
+            font_path=font_path_final,
             width=width,
             height=height,
             background_color=background_color,
@@ -321,6 +364,7 @@ if text:
             scale=scale,
             contour_width=contour_width,
             contour_color=contour_color,
+            mask_path=mask_path,
         )
 
         try:
