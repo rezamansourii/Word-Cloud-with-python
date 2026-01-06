@@ -1,0 +1,10 @@
+streamlit
+wordcloud
+matplotlib
+arabic-reshaper
+python-bidi
+requests
+beautifulsoup4
+trafilatura
+pdfplumber
+hazm
