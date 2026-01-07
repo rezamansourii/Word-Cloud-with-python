@@ -415,3 +415,4 @@ if text:
                         "- Noto Naskh Arabic / Noto Sans Arabic\n"
                         "- IRANSans (if you have a licensed copy)\n"
                     )
+
