@@ -35,7 +35,7 @@ pip install -r requirements.txt
 ## Run
 
 ```bash
-streamlit run "word cloud project.py"
+streamlit run word-cloud.py
 ```
 
 ## Notes
