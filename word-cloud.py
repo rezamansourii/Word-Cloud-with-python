@@ -16,7 +16,7 @@ Install:
   pip install streamlit wordcloud matplotlib arabic-reshaper python-bidi requests beautifulsoup4 trafilatura pdfplumber hazm
 
 Run:
-  streamlit run persian_wordcloud_ui.py
+  streamlit run word-cloud.py
 
 Notes:
 - You MUST provide a Persian-capable TTF/OTF font file path (e.g., Vazirmatn.ttf, IRANSans.ttf, NotoNaskhArabic.ttf).
@@ -415,4 +415,5 @@ if text:
                         "- Noto Naskh Arabic / Noto Sans Arabic\n"
                         "- IRANSans (if you have a licensed copy)\n"
                     )
+
 
