@@ -2,6 +2,41 @@
 
 Streamlit-based UI for generating Persian (RTL) word clouds from URLs, PDFs, or plain text. The app handles Arabic/Persian shaping and proper RTL display so the output renders correctly.
 
+<table>
+  <tr>
+    <td align="center">
+      <img
+        src="https://raw.githubusercontent.com/rezamansourii/Word-Cloud-with-python/main/Images/Word-cloud-generator.png"
+        width="300"
+        alt="Sample Output 1"
+      />
+    </td>
+    <td align="center">
+      <img
+        src="https://raw.githubusercontent.com/rezamansourii/Word-Cloud-with-python/main/Images/word-cloud-generator2.png"
+        width="300"
+        alt="Sample Output 2"
+      />
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img
+        src="https://raw.githubusercontent.com/rezamansourii/Word-Cloud-with-python/main/Images/Sample-output.png"
+        width="300"
+        alt="Word Cloud Generator UI 1"
+      />
+    </td>
+    <td align="center">
+      <img
+        src="https://raw.githubusercontent.com/rezamansourii/Word-Cloud-with-python/main/Images/Sample-output2.png"
+        width="300"
+        alt="Word Cloud Generator UI 2"
+      />
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 - **Inputs:** URL, PDF, or plain text
